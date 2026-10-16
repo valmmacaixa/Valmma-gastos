@@ -137,7 +137,7 @@ async def procesar_documentos(files: List[UploadFile] = File(...)):
 
         try:
             response = client.models.generate_content(
-                model="gemini-1.5-flash",
+                model="gemini-3.8-flash",
                 contents=[prompt_base, img_pil]
             )
             raw = response.text.replace("```json", "").replace("```", "").strip()
