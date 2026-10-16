@@ -149,6 +149,9 @@ async def procesar_documentos(files: List[UploadFile] = File(...)):
     global SESION_IMAGENES
     SESION_IMAGENES.clear()
 
+    if not API_KEY:
+        raise HTTPException(status_code=500, detail="GEMINI_API_KEY no configurada en el servidor.")
+
     client = genai.Client(api_key=API_KEY)
     items_extraidos = []
 
@@ -178,7 +181,7 @@ async def procesar_documentos(files: List[UploadFile] = File(...)):
 
         try:
             response = client.models.generate_content(
-                model="gemini-3.8-flash",
+                model="gemini-2.5-flash",
                 contents=[prompt_base, img_pil]
             )
             raw = response.text.replace("```json", "").replace("```", "").strip()
@@ -194,7 +197,7 @@ async def procesar_documentos(files: List[UploadFile] = File(...)):
                 data["filename"] = file.filename
                 items_extraidos.append(data)
         except Exception as e:
-            print(f"Error OCR {file.filename}: {e}")
+            print(f"CRITICAL OCR ERROR en {file.filename}: {e}")
 
     items_unicos = depurar_y_fusionar_duplicados(items_extraidos)
 
