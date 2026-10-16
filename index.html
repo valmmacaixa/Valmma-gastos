@@ -5,113 +5,256 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Valmma Gastos</title>
   <link rel="manifest" href="manifest.json">
-  <script src="[https://cdn.tailwindcss.com](https://cdn.tailwindcss.com)"></script>
+  <meta name="theme-color" content="#c00000">
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; font-family: Arial, Helvetica, sans-serif; }
+    body { background-color: #f0f2f5; color: #333; padding: 15px; }
+    .container { max-width: 1100px; margin: 0 auto; display: flex; flex-direction: column; gap: 15px; }
+
+    header { background: white; padding: 15px 20px; border-radius: 10px; border: 1px solid #e0e0e0; display: flex; justify-content: space-between; align-items: center; }
+    .logo-valmma { height: 45px; width: auto; max-width: 200px; object-fit: contain; }
+    .header-right { text-align: right; }
+    .header-right h1 { font-size: 16px; font-weight: bold; color: #666; }
+    .header-right p { font-size: 11px; font-style: italic; color: #888; margin-top: 2px; }
+    .line-sep { height: 3px; background-color: #c00000; border-radius: 2px; }
+
+    .card { background: #f8f9fa; border: 1px solid #e0e0e0; border-radius: 10px; padding: 15px 20px; }
+    .grid-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 15px; }
+    @media(max-width: 768px) { .grid-2 { grid-template-columns: 1fr; } }
+
+    label.field-label { display: block; font-size: 10px; font-weight: bold; color: #444; margin-bottom: 5px; text-transform: uppercase; }
+    input[type="text"] { width: 100%; height: 36px; border: 1px solid #ccc; border-radius: 6px; padding: 0 10px; font-size: 13px; outline: none; }
+    input[type="text"]:focus { border-color: #c00000; }
+
+    .btn { height: 38px; padding: 0 16px; border-radius: 6px; border: none; font-weight: bold; font-size: 12px; cursor: pointer; display: inline-flex; align-items: center; justify-content: center; gap: 5px; text-decoration: none; }
+    .btn-red { background-color: #c00000; color: white !important; }
+    .btn-red:hover { background-color: #900000; }
+    .btn-dark { background-color: #2b3035; color: white !important; }
+    .btn-dark:hover { background-color: #383d41; }
+    .btn-outline { background: transparent; border: 1px solid #ccc; color: #333; }
+    .btn-outline:hover { background-color: #e2e6ea; }
+    .btn:disabled { opacity: 0.4; cursor: not-allowed; }
+
+    .flex-between { display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 10px; }
+    .flex-left { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
+    .count-tag { background: #e9ecef; color: #333; font-size: 11px; padding: 6px 14px; border-radius: 12px; font-weight: 500; }
+
+    .res-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px; }
+    .res-title { font-size: 11px; font-weight: bold; color: #555; }
+    .status-dot { font-size: 11px; color: #888; font-weight: bold; }
+    .status-active { color: #c00000; }
+    .status-success { color: #2b8a3e; }
+
+    .textarea-container { position: relative; width: 100%; }
+    textarea { width: 100%; height: 180px; background: white; border: 1px solid #d0d0d0; border-radius: 8px; padding: 12px; font-family: monospace; font-size: 12px; color: #333; resize: none; outline: none; }
+    .logo-jcv { position: absolute; bottom: 12px; right: 15px; height: 32px; width: auto; opacity: 0.8; pointer-events: none; }
+
+    .modal-overlay { position: fixed; top: 0; left: 0; width: 100vw; height: 100vh; background: rgba(0,0,0,0.5); display: none; justify-content: center; align-items: center; z-index: 100; }
+    .modal-box { background: white; border-radius: 10px; width: 90%; max-width: 750px; height: 500px; padding: 20px; display: flex; flex-direction: column; gap: 15px; }
+    .modal-header { display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid #eee; padding-bottom: 10px; }
+    .modal-body { display: grid; grid-template-columns: 1fr 1fr; gap: 15px; height: 100%; overflow: hidden; }
+    .ticket-list { overflow-y: auto; display: flex; flex-direction: column; gap: 6px; padding-right: 5px; }
+    .ticket-item { display: flex; justify-content: space-between; align-items: center; background: #f8f9fa; padding: 6px 10px; border-radius: 6px; border: 1px solid #e0e0e0; }
+    .ticket-item span { font-size: 12px; font-weight: bold; color: #333; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; max-width: 180px; }
+    .preview-box { border: 1px dashed #ccc; border-radius: 8px; display: flex; justify-content: center; align-items: center; overflow: hidden; background: #fafafa; }
+    .preview-box img { max-width: 100%; max-height: 350px; object-fit: contain; }
+  </style>
 </head>
-<body class="bg-gray-100 min-h-screen font-sans text-gray-800 p-4 md:p-8">
+<body>
 
-  <div class="max-w-6xl mx-auto space-y-6">
+  <div class="container">
 
-    <!-- CABECERA -->
-    <header class="flex justify-between items-center bg-white p-4 rounded-xl shadow-sm border">
-      <img src="logo_valmma.png" alt="Valmma" class="h-12 object-contain">
-      <div class="text-right">
-        <h1 class="text-xl font-bold text-gray-600">GESTIÓN Y CONTROL DE GASTOS DE VIAJE</h1>
-        <p class="text-xs text-gray-400 italic">Lectura de tickets y facturas · Informe para contabilidad</p>
+    <header>
+      <img src="logo_valmma.png" alt="Valmma Soluciones" class="logo-valmma" onerror="this.style.display='none'">
+      <div class="header-right">
+        <h1>GESTIÓN Y CONTROL DE GASTOS DE VIAJE</h1>
+        <p>Lectura de tickets y facturas · Informe para contabilidad</p>
       </div>
     </header>
 
-    <div class="h-1 bg-[#c00000] rounded-full"></div>
+    <div class="line-sep"></div>
 
-    <!-- DATOS DE USUARIO -->
-    <section class="bg-white p-6 rounded-xl shadow-sm border grid grid-cols-1 md:grid-cols-2 gap-6">
+    <section class="card grid-2">
       <div>
-        <label class="block text-xs font-bold text-gray-600 mb-1">¿CÓMO TE LLAMAS? (NOMBRE PARA EL INFORME)</label>
-        <input id="nombre" type="text" value="Javier Cosme" class="w-full border rounded-lg p-2.5 text-sm focus:ring-2 focus:ring-red-500 outline-none">
+        <label class="field-label">¿CÓMO TE LLAMAS? (NOMBRE PARA EL INFORME)</label>
+        <input id="nombreUsuario" type="text" placeholder="Nombre">
       </div>
       <div>
-        <label class="block text-xs font-bold text-gray-600 mb-1">¿ESTOS GASTOS APLICAN A OTROS TRABAJADORES?</label>
-        <input id="otros" type="text" placeholder="Nombres, separados por comas (opcional)" class="w-full border rounded-lg p-2.5 text-sm focus:ring-2 focus:ring-red-500 outline-none">
+        <label class="field-label">¿ESTOS GASTOS APLICAN A OTROS TRABAJADORES?</label>
+        <input id="otros" type="text" placeholder="Nombres, separados por comas (opcional)">
       </div>
     </section>
 
-    <!-- SECCIÓN IMÁGENES -->
-    <section class="bg-white p-4 rounded-xl shadow-sm border flex justify-between items-center">
-      <div class="flex items-center space-x-4">
-        <label class="bg-[#c00000] hover:bg-red-800 text-white font-bold text-sm px-6 py-2.5 rounded-lg cursor-pointer transition">
-          Añadir tickets
-          <input id="inputFiles" type="file" multiple accept="image/*" class="hidden" onchange="actualizarArchivos()">
+    <section class="card flex-between">
+      <div class="flex-left">
+        <label class="btn btn-red">
+          📷 Añadir / Hacer Foto
+          <input id="inputFiles" type="file" multiple accept="image/*" capture="environment" style="display:none;" onchange="cargarImagenes(this)">
         </label>
-        <span id="lblCount" class="bg-gray-100 text-gray-500 text-xs px-4 py-2 rounded-full font-medium">0 imágenes seleccionadas</span>
+        <span id="lblCount" class="count-tag">0 imágenes seleccionadas</span>
       </div>
+      <button id="btnGestionar" onclick="abrirModalGestion()" disabled class="btn btn-outline">Ver / Gestionar tickets</button>
     </section>
 
-    <!-- ACCIONES -->
-    <section class="bg-white p-4 rounded-xl shadow-sm border flex flex-wrap gap-4 items-center justify-between">
-      <div class="flex items-center space-x-2">
-        <button id="btnProcesar" onclick="procesar()" disabled class="bg-[#c00000] opacity-50 text-white font-bold text-sm px-5 py-2.5 rounded-lg">1 Procesar documentos</button>
-        <span class="text-gray-300">—</span>
-        <button id="btnExcel" onclick="descargarExcel()" disabled class="bg-[#2b3035] opacity-50 text-white font-bold text-sm px-5 py-2.5 rounded-lg">2 Excel</button>
+    <section class="card flex-between">
+      <div class="flex-left">
+        <button id="btnProcesar" onclick="procesarGastos()" disabled class="btn btn-red">1 Procesar documentos</button>
+        <span style="color:#bbb;">——</span>
+        <button id="btnExcel" onclick="descargarExcel()" disabled class="btn btn-dark">2 Excel</button>
+        <span style="color:#bbb;">——</span>
+        <button id="btnDocFacturas" onclick="descargarDoc(false)" disabled class="btn btn-dark">3 DOC facturas</button>
+        <span style="color:#bbb;">——</span>
+        <button id="btnDocTickets" onclick="descargarDoc(true)" disabled class="btn btn-dark">4 DOC tickets</button>
       </div>
-      <button onclick="location.reload()" class="border text-gray-700 font-bold text-sm px-4 py-2.5 rounded-lg hover:bg-gray-50">Reiniciar</button>
+      <button onclick="reiniciarApp()" class="btn btn-outline">Reiniciar</button>
     </section>
 
-<!-- REGISTRO DE ACTIVIDAD -->
-    <section class="bg-white p-6 rounded-xl shadow-sm border relative">
-      <div class="flex justify-between items-center mb-2">
-        <h2 class="text-xs font-bold text-gray-500">REGISTRO DE ACTIVIDAD</h2>
-        <span id="statusDot" class="text-xs text-gray-400">● En espera</span>
+    <section class="card">
+      <div class="res-header">
+        <span class="res-title">REGISTRO DE ACTIVIDAD</span>
+        <span id="statusDot" class="status-dot">● En espera</span>
       </div>
-      <textarea id="txtResult" readonly class="w-full h-48 border rounded-lg p-3 text-xs font-mono bg-gray-50 text-gray-700 focus:outline-none resize-none">Aquí irá apareciendo el seguimiento del proceso: lectura de tickets, avisos y resultado final.</textarea>
-      
-      <!-- LOGOTIPO JCV EN LA ESQUINA INFERIOR DERECHA -->
-      <img src="JCV.png" alt="JCV" class="absolute bottom-8 right-8 h-8 opacity-80 pointer-events-none select-none">
+      <div class="textarea-container">
+        <textarea id="txtResult" readonly>Aquí irá apareciendo el seguimiento del proceso: lectura de tickets, avisos y resultado final.</textarea>
+        <img src="JCV.png" alt="JCV" class="logo-jcv" onerror="this.style.display='none'">
+      </div>
     </section>
 
   </div>
 
-  <script>
-    let archivos = [];
-    let itemsCache = [];
-    const API_URL = "[https://valmma-gastos.onrender.com](https://valmma-gastos.onrender.com)"; // Reemplazar con tu URL de Render
+  <div id="modalGestion" class="modal-overlay">
+    <div class="modal-box">
+      <div class="modal-header">
+        <h3 style="font-size:14px; font-weight:bold;">Gestión de Tickets y Facturas Cargadas</h3>
+        <button onclick="cerrarModalGestion()" class="btn btn-outline" style="height:28px; padding:0 10px;">✕ Cerrar</button>
+      </div>
+      <div class="modal-body">
+        <div id="ticketList" class="ticket-list"></div>
+        <div id="previewBox" class="preview-box">
+          <span style="font-size:12px; color:#888;">Selecciona un archivo para ver la miniatura</span>
+        </div>
+      </div>
+    </div>
+  </div>
 
-    function actualizarArchivos() {
-      archivos = Array.from(document.getElementById('inputFiles').files);
-      document.getElementById('lblCount').innerText = `${archivos.length} imágenes seleccionadas`;
-      document.getElementById('btnProcesar').disabled = archivos.length === 0;
-      document.getElementById('btnProcesar').classList.toggle('opacity-50', archivos.length === 0);
+  <script>
+    if ('serviceWorker' in navigator) {
+      navigator.serviceWorker.register('sw.js').catch(err => console.log('SW error:', err));
     }
 
-    async function procesar() {
+    let archivos = [];
+    let itemsCache = [];
+    const API_URL = "https://valmma-gastos.onrender.com";
+
+    function cargarImagenes(input) {
+      if (input.files.length > 0) {
+        archivos = archivos.concat(Array.from(input.files));
+        actualizarContadores();
+      }
+    }
+
+    function actualizarContadores() {
+      const num = archivos.length;
+      document.getElementById('lblCount').innerText = `${num} imágenes seleccionadas`;
+      document.getElementById('btnProcesar').disabled = num === 0;
+      document.getElementById('btnGestionar').disabled = num === 0;
+    }
+
+    function abrirModalGestion() {
+      poblarListaModal();
+      document.getElementById('modalGestion').style.display = 'flex';
+    }
+
+    function cerrarModalGestion() {
+      document.getElementById('modalGestion').style.display = 'none';
+    }
+
+    function poblarListaModal() {
+      const container = document.getElementById('ticketList');
+      container.innerHTML = '';
+
+      archivos.forEach((file, idx) => {
+        const item = document.createElement('div');
+        item.className = 'ticket-item';
+        item.innerHTML = `
+          <span>${idx + 1}. ${file.name}</span>
+          <div style="display:flex; gap:5px;">
+            <button onclick="verPreview(${idx})" class="btn btn-dark" style="height:26px; font-size:10px; padding:0 8px;">Ver</button>
+            <button onclick="borrarArchivo(${idx})" class="btn btn-red" style="height:26px; font-size:10px; padding:0 8px;">🗑️ Borrar</button>
+          </div>
+        `;
+        container.appendChild(item);
+      });
+    }
+
+    function verPreview(idx) {
+      const file = archivos[idx];
+      const reader = new FileReader();
+      reader.onload = (e) => {
+        document.getElementById('previewBox').innerHTML = `<img src="${e.target.result}">`;
+      };
+      reader.readAsDataURL(file);
+    }
+
+    function borrarArchivo(idx) {
+      archivos.splice(idx, 1);
+      actualizarContadores();
+      poblarListaModal();
+      document.getElementById('previewBox').innerHTML = '<span style="font-size:12px; color:#888;">Selecciona un archivo para ver la miniatura</span>';
+      if (archivos.length === 0) cerrarModalGestion();
+    }
+
+    async function procesarGastos() {
+      document.getElementById('btnProcesar').disabled = true;
+      document.getElementById('statusDot').innerText = '● Procesando...';
+      document.getElementById('statusDot').className = 'status-dot status-active';
+      document.getElementById('txtResult').value = `Analizando ${archivos.length} documentos con IA...`;
+
       const formData = new FormData();
       archivos.forEach(f => formData.append('files', f));
 
-      document.getElementById('statusDot').innerText = '● Procesando...';
-      document.getElementById('statusDot').className = 'text-xs text-red-600 font-bold';
-      document.getElementById('txtResult').value = 'Analizando imágenes con IA...';
-
       try {
         const resp = await fetch(`${API_URL}/api/procesar`, { method: 'POST', body: formData });
+        
+        if (!resp.ok) {
+          const errText = await resp.text();
+          throw new Error(`Código ${resp.status}: ${errText.slice(0, 100)}`);
+        }
+
         const data = await resp.json();
         itemsCache = data.items;
 
-        let msg = `¡PROCESO COMPLETADO (${itemsCache.length} gastos)!\n\n=== DESGLOSE EXTRAÍDO ===\n`;
+        let msg = `¡PROCESO COMPLETADO (${itemsCache.length} gastos consolidados)!\n\n`;
+        msg += "Ya puedes pulsar en los botones 2 (Excel), 3 (DOC Facturas) y 4 (DOC Tickets) para generar los archivos.\n\n";
+        msg += "=== DESGLOSE EXTRAÍDO ===\n";
         itemsCache.forEach(i => {
-          msg += `• ${i.fecha || 'Sin fecha'} | ${i.localidad || '(En blanco)'} | ${i.tipo_doc} | ${i.importe}€ | ${i.descripcion}\n`;
+          msg += `• ${i.fecha || 'Sin fecha'} | ${i.localidad || '(En blanco)'} | ${i.tipo_doc} | ${i.forma_pago} | ${i.importe}€ | ${i.descripcion}\n`;
         });
 
         document.getElementById('txtResult').value = msg;
         document.getElementById('statusDot').innerText = '● Completado';
-        document.getElementById('statusDot').className = 'text-xs text-green-600 font-bold';
+        document.getElementById('statusDot').className = 'status-dot status-success';
+        
         document.getElementById('btnExcel').disabled = false;
-        document.getElementById('btnExcel').classList.remove('opacity-50');
+        
+        const tieneFacturas = itemsCache.some(i => (i.tipo_doc || '').toUpperCase().includes('FACTURA'));
+        const tieneTickets = itemsCache.some(i => !(i.tipo_doc || '').toUpperCase().includes('FACTURA'));
+
+        document.getElementById('btnDocFacturas').disabled = !tieneFacturas;
+        document.getElementById('btnDocTickets').disabled = !tieneTickets;
+
       } catch (err) {
-        document.getElementById('txtResult').value = 'Error al procesar: ' + err;
+        document.getElementById('txtResult').value = 'Error al procesar:\n' + err.message;
+        document.getElementById('statusDot').innerText = '● Error';
+      } finally {
+        document.getElementById('btnProcesar').disabled = false;
       }
     }
 
     async function descargarExcel() {
+      const nombreVal = document.getElementById('nombreUsuario').value.trim() || "Javier Cosme";
       const body = {
-        nombre: document.getElementById('nombre').value,
+        nombre: nombreVal,
         otros: document.getElementById('otros').value,
         items: itemsCache
       };
@@ -121,11 +264,59 @@
         body: JSON.stringify(body)
       });
       const blob = await resp.blob();
+      
+      const contentDisposition = resp.headers.get('Content-Disposition');
+      let filename = `Gastos_Valmma_${nombreVal.replace(/ /g, '_')}_${new Date().toISOString().slice(0,19).replace(/[-T:]/g,'')}.xlsx`;
+      if (contentDisposition && contentDisposition.includes('filename=')) {
+        filename = contentDisposition.split('filename=')[1].replace(/"/g, '');
+      }
+
       const url = window.URL.createObjectURL(blob);
       const a = document.createElement('a');
       a.href = url;
-      a.download = `Gastos_Valmma_${body.nombre.replace(/ /g, '_')}.xlsx`;
+      a.download = filename;
       a.click();
+    }
+
+    async function descargarDoc(esTicket) {
+      const nombreVal = document.getElementById('nombreUsuario').value.trim() || "Javier Cosme";
+      const body = {
+        nombre: nombreVal,
+        es_ticket: esTicket,
+        items: itemsCache
+      };
+      const resp = await fetch(`${API_URL}/api/generar-doc`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(body)
+      });
+      const blob = await resp.blob();
+      
+      const contentDisposition = resp.headers.get('Content-Disposition');
+      let filename = esTicket ? "Anexo_Tickets.docx" : "Anexo_Facturas.docx";
+      if (contentDisposition && contentDisposition.includes('filename=')) {
+        filename = contentDisposition.split('filename=')[1].replace(/"/g, '');
+      }
+
+      const url = window.URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = filename;
+      a.click();
+    }
+
+    function reiniciarApp() {
+      archivos = [];
+      itemsCache = [];
+      document.getElementById('nombreUsuario').value = "";
+      document.getElementById('otros').value = "";
+      actualizarContadores();
+      document.getElementById('statusDot').innerText = '● En espera';
+      document.getElementById('statusDot').className = 'status-dot';
+      document.getElementById('txtResult').value = "Aquí irá apareciendo el seguimiento del proceso: lectura de tickets, avisos y resultado final.";
+      document.getElementById('btnExcel').disabled = true;
+      document.getElementById('btnDocFacturas').disabled = true;
+      document.getElementById('btnDocTickets').disabled = true;
     }
   </script>
 </body>

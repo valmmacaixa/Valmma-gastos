@@ -1,7 +1,7 @@
 {
   "name": "Valmma Gastos",
   "short_name": "ValmmaGastos",
-  "start_url": "index.html",
+  "start_url": "./index.html",
   "display": "standalone",
   "background_color": "#f8f9fa",
   "theme_color": "#c00000",
