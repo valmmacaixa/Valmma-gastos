@@ -206,7 +206,7 @@ async def procesar_documentos(files: List[UploadFile] = File(...)):
 
 @app.post("/api/generar-excel")
 async def generar_excel(payload: dict):
-    nombre_usuario = payload.get("nombre", "Nombre").strip() or "Nombre"
+    nombre_usuario = payload.get("nombre", "Javier Cosme").strip() or "Javier Cosme"
     otros_trabajadores = payload.get("otros", "").strip()
     items = payload.get("items", [])
 
@@ -261,7 +261,7 @@ async def generar_excel(payload: dict):
 
 @app.post("/api/generar-doc")
 async def generar_documento_word(payload: dict):
-    nombre_usuario = payload.get("nombre", "Nombre").strip() or "Nombre"
+    nombre_usuario = payload.get("nombre", "Javier Cosme").strip() or "Javier Cosme"
     es_ticket = payload.get("es_ticket", False)
     items = payload.get("items", [])
 
