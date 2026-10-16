@@ -101,57 +101,12 @@ def parsear_fecha(str_fecha):
             pass
     return None
 
-def depurar_y_fusionar_duplicados(items):
-    unicos = []
-    for item in items:
-        imp = float(item.get("importe", 0.0))
-        f_str = str(item.get("fecha", "")).strip()
-        loc = limpiar_y_formatear_localidad(item.get("localidad", ""))
-        item["localidad"] = loc
-
-        tipo = str(item.get("tipo_doc", "")).upper()
-        pago = str(item.get("forma_pago", "")).upper()
-        desc = str(item.get("descripcion", "")).strip()
-
-        duplicado = False
-        for u in unicos:
-            u_imp = float(u.get("importe", 0.0))
-            u_f_str = str(u.get("fecha", "")).strip()
-            u_pago = str(u.get("forma_pago", "")).upper()
-
-            mismo_importe = abs(imp - u_imp) < 0.01
-            misma_fecha = f_str and u_f_str and (f_str == u_f_str)
-
-            # Si coincide importe y fecha exacta, considerémoslo el mismo gasto (fusionando ticket + TPV tarjeta)
-            if mismo_importe and misma_fecha:
-                duplicado = True
-                
-                # Priorizar datos más completos
-                if "FACTURA" in tipo:
-                    u["tipo_doc"] = "FACTURA"
-                if "TARJETA" in pago or "TARJETA" in u_pago:
-                    u["forma_pago"] = "TARJETA"
-                
-                u_desc = str(u.get("descripcion", ""))
-                if len(desc) > len(u_desc) and "VENTA" not in desc.upper():
-                    u["descripcion"] = desc
-                elif not u_desc and desc:
-                    u["descripcion"] = desc
-
-                if not u.get("localidad") and loc:
-                    u["localidad"] = loc
-                break
-
-        if not duplicado:
-            unicos.append(item)
-    return unicos
-
 @app.post("/api/procesar")
 async def procesar_documentos(files: List[UploadFile] = File(...)):
     global SESION_IMAGENES
 
     if not API_KEY:
-        raise HTTPException(status_code=500, detail="GEMINI_API_KEY no configurada en el servidor.")
+        raise HTTPException(status_code=500, detail="GEMINI_API_KEY no configurada.")
 
     client = genai.Client(api_key=API_KEY)
     items_extraidos = []
@@ -174,7 +129,6 @@ async def procesar_documentos(files: List[UploadFile] = File(...)):
 
     for idx, file in enumerate(files):
         contenido = await file.read()
-        # Generar clave única basada en timestamp y nombre para evitar colisiones entre lotes
         img_id = f"img_{time.time()}_{idx}"
         SESION_IMAGENES[img_id] = contenido
 
@@ -193,16 +147,24 @@ async def procesar_documentos(files: List[UploadFile] = File(...)):
                 for d in data:
                     d["img_id"] = img_id
                     d["filename"] = file.filename
+                    d["localidad"] = limpiar_y_formatear_localidad(d.get("localidad", ""))
                     items_extraidos.append(d)
             elif isinstance(data, dict):
                 data["img_id"] = img_id
                 data["filename"] = file.filename
+                data["localidad"] = limpiar_y_formatear_localidad(data.get("localidad", ""))
                 items_extraidos.append(data)
         except Exception as e:
-            print(f"CRITICAL OCR ERROR en {file.filename}: {e}")
+            print(f"Error OCR {file.filename}: {e}")
 
-    items_unicos = depurar_y_fusionar_duplicados(items_extraidos)
-    return {"status": "ok", "items": items_unicos}
+    # Ordenar por fecha cronológicamente sin eliminar ningún elemento
+    con_f = [x for x in items_extraidos if parsear_fecha(x.get("fecha"))]
+    sin_f = [x for x in items_extraidos if not parsear_fecha(x.get("fecha"))]
+    con_f_ord = sorted(con_f, key=lambda k: parsear_fecha(k.get("fecha")))
+
+    resultado = con_f_ord + sin_f
+
+    return {"status": "ok", "items": resultado}
 
 @app.post("/api/generar-excel")
 async def generar_excel(payload: dict):
