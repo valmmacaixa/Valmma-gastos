@@ -112,17 +112,16 @@ async def procesar_documentos(files: List[UploadFile] = File(...)):
     items_extraidos = []
 
     prompt_base = """
-    Eres el contable experto de Valmma Soluciones, S.L. (CIF B49304645).
-    Analiza la imagen adjunta de ticket/factura o justificante TPV y devuelve EXCLUSIVAMENTE un objeto JSON válido (sin markdown ```json) con este formato:
-    [
-      {
-        "tipo_doc": "FACTURA" si va a nombre de Valmma Soluciones S.L. CIF B49304645, si no "TICKET",
-        "fecha": "DD/MM/YYYY",
-        "localidad": "Ciudad/Población",
-        "importe": 0.00,
-        "forma_pago": "TARJETA" o "CONTADO",
-        "concepto": "Selecciona SOLO uno entre: 'Estancia y manutención + Aparc./autop. + Desplazamiento', 'Gasoil', 'Otros Gastos', 'Invitaciones'",
-        "descripcion": "Resumen breve del comercio/concepto o número de ticket"
+    Analiza la siguiente imagen de ticket/factura y extrae los datos en formato JSON:
+    - fecha: (DD/MM/YYYY)
+    - localidad: (Nombre del municipio/ciudad. Si no consta en el documento, DEJA CADENA VACÍA "")
+    - tipo_doc: ("FACTURA" o "TICKET")
+    - forma_pago: ("TARJETA" o "CONTADO")
+    - importe: (número decimal con el total)
+    - descripcion: (nombre del establecimiento o concepto breve)
+
+REGLA ESTRICTA: Si la localidad no aparece de forma explícita en el comprobante, devuelve "" (cadena vacía). Jamás inventes valores ni pongas "No indicada".
+"""    
       }
     ]
     """
