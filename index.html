@@ -1,0 +1,132 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Valmma Gastos</title>
+  <link rel="manifest" href="manifest.json">
+  <script src="[https://cdn.tailwindcss.com](https://cdn.tailwindcss.com)"></script>
+</head>
+<body class="bg-gray-100 min-h-screen font-sans text-gray-800 p-4 md:p-8">
+
+  <div class="max-w-6xl mx-auto space-y-6">
+
+    <!-- CABECERA -->
+    <header class="flex justify-between items-center bg-white p-4 rounded-xl shadow-sm border">
+      <img src="logo_valmma.png" alt="Valmma" class="h-12 object-contain">
+      <div class="text-right">
+        <h1 class="text-xl font-bold text-gray-600">GESTIÓN Y CONTROL DE GASTOS DE VIAJE</h1>
+        <p class="text-xs text-gray-400 italic">Lectura de tickets y facturas · Informe para contabilidad</p>
+      </div>
+    </header>
+
+    <div class="h-1 bg-[#c00000] rounded-full"></div>
+
+    <!-- DATOS DE USUARIO -->
+    <section class="bg-white p-6 rounded-xl shadow-sm border grid grid-cols-1 md:grid-cols-2 gap-6">
+      <div>
+        <label class="block text-xs font-bold text-gray-600 mb-1">¿CÓMO TE LLAMAS? (NOMBRE PARA EL INFORME)</label>
+        <input id="nombre" type="text" value="Javier Cosme" class="w-full border rounded-lg p-2.5 text-sm focus:ring-2 focus:ring-red-500 outline-none">
+      </div>
+      <div>
+        <label class="block text-xs font-bold text-gray-600 mb-1">¿ESTOS GASTOS APLICAN A OTROS TRABAJADORES?</label>
+        <input id="otros" type="text" placeholder="Nombres, separados por comas (opcional)" class="w-full border rounded-lg p-2.5 text-sm focus:ring-2 focus:ring-red-500 outline-none">
+      </div>
+    </section>
+
+    <!-- SECCIÓN IMÁGENES -->
+    <section class="bg-white p-4 rounded-xl shadow-sm border flex justify-between items-center">
+      <div class="flex items-center space-x-4">
+        <label class="bg-[#c00000] hover:bg-red-800 text-white font-bold text-sm px-6 py-2.5 rounded-lg cursor-pointer transition">
+          Añadir tickets
+          <input id="inputFiles" type="file" multiple accept="image/*" class="hidden" onchange="actualizarArchivos()">
+        </label>
+        <span id="lblCount" class="bg-gray-100 text-gray-500 text-xs px-4 py-2 rounded-full font-medium">0 imágenes seleccionadas</span>
+      </div>
+    </section>
+
+    <!-- ACCIONES -->
+    <section class="bg-white p-4 rounded-xl shadow-sm border flex flex-wrap gap-4 items-center justify-between">
+      <div class="flex items-center space-x-2">
+        <button id="btnProcesar" onclick="procesar()" disabled class="bg-[#c00000] opacity-50 text-white font-bold text-sm px-5 py-2.5 rounded-lg">1 Procesar documentos</button>
+        <span class="text-gray-300">—</span>
+        <button id="btnExcel" onclick="descargarExcel()" disabled class="bg-[#2b3035] opacity-50 text-white font-bold text-sm px-5 py-2.5 rounded-lg">2 Excel</button>
+      </div>
+      <button onclick="location.reload()" class="border text-gray-700 font-bold text-sm px-4 py-2.5 rounded-lg hover:bg-gray-50">Reiniciar</button>
+    </section>
+
+<!-- REGISTRO DE ACTIVIDAD -->
+    <section class="bg-white p-6 rounded-xl shadow-sm border relative">
+      <div class="flex justify-between items-center mb-2">
+        <h2 class="text-xs font-bold text-gray-500">REGISTRO DE ACTIVIDAD</h2>
+        <span id="statusDot" class="text-xs text-gray-400">● En espera</span>
+      </div>
+      <textarea id="txtResult" readonly class="w-full h-48 border rounded-lg p-3 text-xs font-mono bg-gray-50 text-gray-700 focus:outline-none resize-none">Aquí irá apareciendo el seguimiento del proceso: lectura de tickets, avisos y resultado final.</textarea>
+      
+      <!-- LOGOTIPO JCV EN LA ESQUINA INFERIOR DERECHA -->
+      <img src="JCV.png" alt="JCV" class="absolute bottom-8 right-8 h-8 opacity-80 pointer-events-none select-none">
+    </section>
+
+  </div>
+
+  <script>
+    let archivos = [];
+    let itemsCache = [];
+    const API_URL = "[https://TU-SERVIDOR-RENDER.onrender.com](https://TU-SERVIDOR-RENDER.onrender.com)"; // Reemplazar con tu URL de Render
+
+    function actualizarArchivos() {
+      archivos = Array.from(document.getElementById('inputFiles').files);
+      document.getElementById('lblCount').innerText = `${archivos.length} imágenes seleccionadas`;
+      document.getElementById('btnProcesar').disabled = archivos.length === 0;
+      document.getElementById('btnProcesar').classList.toggle('opacity-50', archivos.length === 0);
+    }
+
+    async function procesar() {
+      const formData = new FormData();
+      archivos.forEach(f => formData.append('files', f));
+
+      document.getElementById('statusDot').innerText = '● Procesando...';
+      document.getElementById('statusDot').className = 'text-xs text-red-600 font-bold';
+      document.getElementById('txtResult').value = 'Analizando imágenes con IA...';
+
+      try {
+        const resp = await fetch(`${API_URL}/api/procesar`, { method: 'POST', body: formData });
+        const data = await resp.json();
+        itemsCache = data.items;
+
+        let msg = `¡PROCESO COMPLETADO (${itemsCache.length} gastos)!\n\n=== DESGLOSE EXTRAÍDO ===\n`;
+        itemsCache.forEach(i => {
+          msg += `• ${i.fecha || 'Sin fecha'} | ${i.localidad || '(En blanco)'} | ${i.tipo_doc} | ${i.importe}€ | ${i.descripcion}\n`;
+        });
+
+        document.getElementById('txtResult').value = msg;
+        document.getElementById('statusDot').innerText = '● Completado';
+        document.getElementById('statusDot').className = 'text-xs text-green-600 font-bold';
+        document.getElementById('btnExcel').disabled = false;
+        document.getElementById('btnExcel').classList.remove('opacity-50');
+      } catch (err) {
+        document.getElementById('txtResult').value = 'Error al procesar: ' + err;
+      }
+    }
+
+    async function descargarExcel() {
+      const body = {
+        nombre: document.getElementById('nombre').value,
+        otros: document.getElementById('otros').value,
+        items: itemsCache
+      };
+      const resp = await fetch(`${API_URL}/api/generar-excel`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(body)
+      });
+      const blob = await resp.blob();
+      const url = window.URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `Gastos_Valmma_${body.nombre.replace(/ /g, '_')}.xlsx`;
+      a.click();
+    }
+  </script>
+</body>
+</html>
