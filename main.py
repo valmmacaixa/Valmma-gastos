@@ -5,9 +5,9 @@ import json
 import tempfile
 import unicodedata
 from datetime import datetime
-from typing import List
+from typing import List, Optional
 
-from fastapi import FastAPI, UploadFile, File
+from fastapi import FastAPI, UploadFile, File, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import FileResponse
 from PIL import Image, ImageEnhance, ImageOps
@@ -19,7 +19,6 @@ from google import genai
 
 app = FastAPI(title="Valmma Gastos API")
 
-# Habilitar CORS para permitir llamadas desde la PWA
 app.add_middleware(
     CORSMiddleware,
     allow_origins=["*"],
@@ -30,6 +29,9 @@ app.add_middleware(
 
 API_KEY = os.getenv("GEMINI_API_KEY", "")
 
+# Almacenamiento temporal en memoria para procesar adjuntos en los Word
+SESION_IMAGENES = {}
+
 def limpiar_y_formatear_localidad(loc_str):
     if not loc_str:
         return ""
@@ -38,7 +40,6 @@ def limpiar_y_formatear_localidad(loc_str):
     if s.lower() in invalidos:
         return ""
 
-    # Eliminar tildes y acentos (València -> Valencia)
     nfkd_form = unicodedata.normalize('NFKD', s)
     s_sin_tildes = "".join([c for c in nfkd_form if not unicodedata.combining(c)])
 
@@ -137,8 +138,8 @@ def depurar_y_fusionar_duplicados(items):
 
                 if not u.get("localidad") and loc:
                     u["localidad"] = loc
-                if "bytes" in item and "FACTURA" in item.get("tipo_doc", ""):
-                    u["bytes"] = item["bytes"]
+                if "img_id" in item and "FACTURA" in item.get("tipo_doc", ""):
+                    u["img_id"] = item["img_id"]
                 break
 
         if not duplicado:
@@ -147,6 +148,9 @@ def depurar_y_fusionar_duplicados(items):
 
 @app.post("/api/procesar")
 async def procesar_documentos(files: List[UploadFile] = File(...)):
+    global SESION_IMAGENES
+    SESION_IMAGENES.clear()
+
     client = genai.Client(api_key=API_KEY)
     items_extraidos = []
 
@@ -166,8 +170,11 @@ async def procesar_documentos(files: List[UploadFile] = File(...)):
     ]
     """
 
-    for file in files:
+    for idx, file in enumerate(files):
         contenido = await file.read()
+        img_id = f"img_{idx}"
+        SESION_IMAGENES[img_id] = contenido
+
         buf_opt = optimizar_para_ocr(contenido)
         img_pil = Image.open(buf_opt)
 
@@ -178,17 +185,18 @@ async def procesar_documentos(files: List[UploadFile] = File(...)):
             )
             raw = response.text.replace("```json", "").replace("```", "").strip()
             data = json.loads(raw)
+            
             if isinstance(data, list):
                 for d in data:
-                    d["bytes"] = contenido
+                    d["img_id"] = img_id
                     d["filename"] = file.filename
                     items_extraidos.append(d)
             elif isinstance(data, dict):
-                data["bytes"] = contenido
+                data["img_id"] = img_id
                 data["filename"] = file.filename
                 items_extraidos.append(data)
         except Exception as e:
-            print(f"Error procesando {file.filename}: {e}")
+            print(f"Error OCR {file.filename}: {e}")
 
     items_unicos = depurar_y_fusionar_duplicados(items_extraidos)
 
@@ -197,22 +205,13 @@ async def procesar_documentos(files: List[UploadFile] = File(...)):
     con_f_ord = sorted(con_f, key=lambda k: parsear_fecha(k.get("fecha")))
 
     resultado = con_f_ord + sin_f
-    
-    # Devolver JSON limpio sin bytes binarios en la respuesta inicial
-    respuesta_json = []
-    for idx, item in enumerate(resultado):
-        c = item.copy()
-        c["id"] = idx
-        # Guardamos temporalmente los bytes en memoria del servidor si fuera necesario, 
-        # o los enviamos serializados para el Word. Para simplificar, los guardamos en una variable global temporal.
-        respuesta_json.append(c)
 
-    return {"status": "ok", "items": respuesta_json}
+    return {"status": "ok", "items": resultado}
 
 @app.post("/api/generar-excel")
 async def generar_excel(payload: dict):
-    nombre_usuario = payload.get("nombre", "Javier Cosme")
-    otros_trabajadores = payload.get("otros", "")
+    nombre_usuario = payload.get("nombre", "Javier Cosme").strip() or "Javier Cosme"
+    otros_trabajadores = payload.get("otros", "").strip()
     items = payload.get("items", [])
 
     ruta_plantilla = "Gastos_Viaje_VALMMA_V5.xlsx"
@@ -254,8 +253,70 @@ async def generar_excel(payload: dict):
 
     temp_out = tempfile.NamedTemporaryFile(delete=False, suffix=".xlsx")
     wb.save(temp_out.name)
+    
+    timestamp = time.strftime("%Y%m%d_%H%M%S")
+    nombre_archivo = f"Gastos_Valmma_{nombre_usuario.replace(' ', '_')}_{timestamp}.xlsx"
+
     return FileResponse(
         temp_out.name, 
-        filename=f"Gastos_Valmma_{nombre_usuario.replace(' ', '_')}.xlsx",
+        filename=nombre_archivo,
         media_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+    )
+
+@app.post("/api/generar-doc")
+async def generar_documento_word(payload: dict):
+    nombre_usuario = payload.get("nombre", "Javier Cosme").strip() or "Javier Cosme"
+    es_ticket = payload.get("es_ticket", False)
+    items = payload.get("items", [])
+
+    items_filtrados = [
+        it for it in items 
+        if ("FACTURA" not in str(it.get("tipo_doc", "")).upper()) if es_ticket 
+        else ("FACTURA" in str(it.get("tipo_doc", "")).upper())
+    ]
+
+    if not items_filtrados:
+        raise HTTPException(status_code=400, detail="No hay documentos de este tipo.")
+
+    doc = docx.Document()
+    for section in doc.sections:
+        section.top_margin = Inches(0.5)
+        section.bottom_margin = Inches(0.5)
+        section.left_margin = Inches(0.5)
+        section.right_margin = Inches(0.5)
+
+    archivos_temp = []
+    for item in items_filtrados:
+        img_id = item.get("img_id")
+        if img_id in SESION_IMAGENES:
+            bytes_img = SESION_IMAGENES[img_id]
+            tmp_bn = convertir_a_escaneo_bn(bytes_img)
+            archivos_temp.append(tmp_bn)
+
+            try:
+                p_img = doc.add_paragraph()
+                p_img.alignment = WD_ALIGN_PARAGRAPH.LEFT
+                p_img.paragraph_format.space_after = Pt(8)
+                p_img.paragraph_format.space_before = Pt(0)
+                p_img.add_run().add_picture(tmp_bn, width=Inches(4.5))
+            except Exception:
+                pass
+
+    temp_doc = tempfile.NamedTemporaryFile(delete=False, suffix=".docx")
+    doc.save(temp_doc.name)
+
+    for tmp in archivos_temp:
+        try:
+            os.remove(tmp)
+        except Exception:
+            pass
+
+    prefijo = "Anexo_Tickets" if es_ticket else "Anexo_Facturas"
+    timestamp = time.strftime("%Y%m%d_%H%M%S")
+    nombre_doc = f"{prefijo}_{nombre_usuario.replace(' ', '_')}_{timestamp}.docx"
+
+    return FileResponse(
+        temp_doc.name,
+        filename=nombre_doc,
+        media_type="application/vnd.openxmlformats-officedocument.wordprocessingml.document"
     )
