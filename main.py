@@ -267,11 +267,15 @@ async def generar_documento_word(payload: dict):
     es_ticket = payload.get("es_ticket", False)
     items = payload.get("items", [])
 
-    items_filtrados = [
-        it for it in items 
-        if ("FACTURA" not in str(it.get("tipo_doc", "")).upper()) if es_ticket 
-        else ("FACTURA" in str(it.get("tipo_doc", "")).upper())
-    ]
+    items_filtrados = []
+    for it in items:
+        es_factura = "FACTURA" in str(it.get("tipo_doc", "")).upper()
+        if es_ticket:
+            if not es_factura:
+                items_filtrados.append(it)
+        else:
+            if es_factura:
+                items_filtrados.append(it)
 
     if not items_filtrados:
         raise HTTPException(status_code=400, detail="No hay documentos de este tipo.")
