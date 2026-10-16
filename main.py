@@ -117,15 +117,19 @@ def depurar_y_fusionar_duplicados(items):
         for u in unicos:
             u_imp = float(u.get("importe", 0.0))
             u_f_str = str(u.get("fecha", "")).strip()
+            u_pago = str(u.get("forma_pago", "")).upper()
 
             mismo_importe = abs(imp - u_imp) < 0.01
             misma_fecha = f_str and u_f_str and (f_str == u_f_str)
 
+            # Si coincide importe y fecha exacta, considerémoslo el mismo gasto (fusionando ticket + TPV tarjeta)
             if mismo_importe and misma_fecha:
                 duplicado = True
+                
+                # Priorizar datos más completos
                 if "FACTURA" in tipo:
                     u["tipo_doc"] = "FACTURA"
-                if "TARJETA" in pago or "TARJETA" in str(u.get("forma_pago", "")).upper():
+                if "TARJETA" in pago or "TARJETA" in u_pago:
                     u["forma_pago"] = "TARJETA"
                 
                 u_desc = str(u.get("descripcion", ""))
@@ -136,8 +140,6 @@ def depurar_y_fusionar_duplicados(items):
 
                 if not u.get("localidad") and loc:
                     u["localidad"] = loc
-                if "img_id" in item and "FACTURA" in item.get("tipo_doc", ""):
-                    u["img_id"] = item["img_id"]
                 break
 
         if not duplicado:
@@ -147,7 +149,6 @@ def depurar_y_fusionar_duplicados(items):
 @app.post("/api/procesar")
 async def procesar_documentos(files: List[UploadFile] = File(...)):
     global SESION_IMAGENES
-    SESION_IMAGENES.clear()
 
     if not API_KEY:
         raise HTTPException(status_code=500, detail="GEMINI_API_KEY no configurada en el servidor.")
@@ -173,7 +174,8 @@ async def procesar_documentos(files: List[UploadFile] = File(...)):
 
     for idx, file in enumerate(files):
         contenido = await file.read()
-        img_id = f"img_{idx}"
+        # Generar clave única basada en timestamp y nombre para evitar colisiones entre lotes
+        img_id = f"img_{time.time()}_{idx}"
         SESION_IMAGENES[img_id] = contenido
 
         buf_opt = optimizar_para_ocr(contenido)
@@ -181,7 +183,7 @@ async def procesar_documentos(files: List[UploadFile] = File(...)):
 
         try:
             response = client.models.generate_content(
-                model="gemini-2.5-flash",
+                model="gemini-1.5-flash",
                 contents=[prompt_base, img_pil]
             )
             raw = response.text.replace("```json", "").replace("```", "").strip()
@@ -200,18 +202,11 @@ async def procesar_documentos(files: List[UploadFile] = File(...)):
             print(f"CRITICAL OCR ERROR en {file.filename}: {e}")
 
     items_unicos = depurar_y_fusionar_duplicados(items_extraidos)
-
-    con_f = [x for x in items_unicos if parsear_fecha(x.get("fecha"))]
-    sin_f = [x for x in items_unicos if not parsear_fecha(x.get("fecha"))]
-    con_f_ord = sorted(con_f, key=lambda k: parsear_fecha(k.get("fecha")))
-
-    resultado = con_f_ord + sin_f
-
-    return {"status": "ok", "items": resultado}
+    return {"status": "ok", "items": items_unicos}
 
 @app.post("/api/generar-excel")
 async def generar_excel(payload: dict):
-    nombre_usuario = payload.get("nombre", "Javier Cosme").strip() or "Javier Cosme"
+    nombre_usuario = payload.get("nombre", "Nombre").strip() or "Nombre"
     otros_trabajadores = payload.get("otros", "").strip()
     items = payload.get("items", [])
 
@@ -266,7 +261,7 @@ async def generar_excel(payload: dict):
 
 @app.post("/api/generar-doc")
 async def generar_documento_word(payload: dict):
-    nombre_usuario = payload.get("nombre", "Javier Cosme").strip() or "Javier Cosme"
+    nombre_usuario = payload.get("nombre", "Nombre").strip() or "Nombre"
     es_ticket = payload.get("es_ticket", False)
     items = payload.get("items", [])
 
