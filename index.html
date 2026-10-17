@@ -86,14 +86,18 @@
     </section>
 
     <section class="card flex-between">
-      <div class="flex-left">
-        <label class="btn btn-red">
-          📷 Añadir / Hacer Foto
-          <input id="inputFiles" type="file" multiple accept="image/*" style="display:none;" onchange="cargarImagenes(this)">
+      <div class="flex-left" style="width: 100%; gap: 10px;">
+        <label class="btn btn-red" style="flex: 1;">
+          📷 Hacer Foto
+          <input type="file" accept="image/*" capture="environment" style="display:none;" onchange="cargarImagenes(this)">
         </label>
-        <span id="lblCount" class="count-tag">0 imágenes seleccionadas</span>
+        <label class="btn btn-dark" style="flex: 1;">
+          📂 Elegir Galería
+          <input type="file" multiple accept="image/*" style="display:none;" onchange="cargarImagenes(this)">
+        </label>
       </div>
-      <button id="btnGestionar" onclick="abrirModalGestion()" disabled class="btn btn-outline">Ver / Gestionar tickets</button>
+      <span id="lblCount" class="count-tag" style="width: 100%; text-align: center;">0 imágenes seleccionadas</span>
+      <button id="btnGestionar" onclick="abrirModalGestion()" disabled class="btn btn-outline" style="width: 100%;">Ver / Gestionar tickets</button>
     </section>
 
     <section class="card flex-between">
