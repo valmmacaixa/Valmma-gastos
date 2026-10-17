@@ -104,13 +104,13 @@ def parsear_fecha(str_fecha):
 @app.post("/api/procesar")
 async def procesar_documentos(files: List[UploadFile] = File(...)):
     global SESION_IMAGENES
-
+    
     if not API_KEY:
         raise HTTPException(status_code=500, detail="GEMINI_API_KEY no configurada.")
-
+        
     client = genai.Client(api_key=API_KEY)
     items_extraidos = []
-
+    
     prompt_base = """
     Analiza la siguiente imagen de ticket/factura y extrae los datos en formato JSON:
     - fecha: (DD/MM/YYYY)
@@ -120,10 +120,7 @@ async def procesar_documentos(files: List[UploadFile] = File(...)):
     - importe: (número decimal con el total)
     - descripcion: (nombre del establecimiento o concepto breve)
 
-REGLA ESTRICTA: Si la localidad no aparece de forma explícita en el comprobante, devuelve "" (cadena vacía). Jamás inventes valores ni pongas "No indicada".
-"""    
-      }
-    ]
+    REGLA ESTRICTA: Si la localidad no aparece de forma explícita en el comprobante, devuelve "" (cadena vacía). Jamás inventes valores ni pongas "No indicada".
     """
 
     for idx, file in enumerate(files):
