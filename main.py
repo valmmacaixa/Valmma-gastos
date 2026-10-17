@@ -4,6 +4,7 @@ import time
 import json
 import tempfile
 import unicodedata
+import asyncio
 from datetime import datetime
 from typing import List, Optional
 
@@ -34,7 +35,7 @@ def limpiar_y_formatear_localidad(loc_str):
     if not loc_str:
         return ""
     s = str(loc_str).strip()
-    invalidos = ["desconocido", "desconocida", "no especificada", "no especificado", "no disponible", "n/a", "-"]
+    invalidos = ["desconocido", "desconocida", "no especificada", "no especificado", "no disponible", "n/a", "-", "no indicada"]
     if s.lower() in invalidos:
         return ""
 
@@ -109,49 +110,58 @@ async def procesar_documentos(files: List[UploadFile] = File(...)):
         raise HTTPException(status_code=500, detail="GEMINI_API_KEY no configurada.")
         
     client = genai.Client(api_key=API_KEY)
-    items_extraidos = []
     
     prompt_base = """
-    Analiza la siguiente imagen de ticket/factura y extrae los datos en formato JSON:
+    Analiza la siguiente imagen de un ticket, factura o comprobante de gasto.
+    
+    REGLAS ESTRICTAS DE EXTRACCIÓN:
+    1. TIPO DE DOCUMENTO ("tipo_doc"):
+       - "FACTURA": ÚNICAMENTE si es una factura formal con NIF/CIF del emisor, numeración de factura y datos fiscales completos. Las facturas simplificadas o tickets de caja NO son facturas, deben ir como "TICKET".
+       - "TICKET": Tiques de caja, restaurantes, parkings, peajes, taxis o facturas simplificadas.
+    2. IGNORAR COMPROBANTES DE TARJETA (DATÁFONO): Si la imagen es exclusivamente el resguardo impreso de pago con tarjeta (el papel secundario con códigos de autorización, VISA/Mastercard, etc.) y no el ticket comercial de la compra, IGNÓRALO devolviendo importe 0 para evitar duplicar el gasto.
+    3. LOCALIDAD: Si la localidad o ciudad no aparece de forma explícita en el texto, deja el campo estrictamente como "" (cadena vacía). Jamás pongas "No indicada" ni inventes datos.
+    
+    Extrae los datos en formato JSON estricto con las claves:
     - fecha: (DD/MM/YYYY)
-    - localidad: (Nombre del municipio/ciudad. Si no consta en el documento, DEJA CADENA VACÍA "")
+    - localidad: (Nombre del municipio o "" si no consta)
     - tipo_doc: ("FACTURA" o "TICKET")
     - forma_pago: ("TARJETA" o "CONTADO")
     - importe: (número decimal con el total)
     - descripcion: (nombre del establecimiento o concepto breve)
-
-    REGLA ESTRICTA: Si la localidad no aparece de forma explícita en el comprobante, devuelve "" (cadena vacía). Jamás inventes valores ni pongas "No indicada".
     """
 
-    for idx, file in enumerate(files):
-        contenido = await file.read()
-        img_id = f"img_{time.time()}_{idx}"
-        SESION_IMAGENES[img_id] = contenido
-
-        buf_opt = optimizar_para_ocr(contenido)
-        img_pil = Image.open(buf_opt)
-
+    async def procesar_archivo(idx: int, file: UploadFile):
         try:
+            contenido = await file.read()
+            img_id = f"img_{time.time()}_{idx}"
+            SESION_IMAGENES[img_id] = contenido
+
+            buf_opt = optimizar_para_ocr(contenido)
+            img_pil = Image.open(buf_opt)
+
             response = client.models.generate_content(
-                model="gemini-3.8-flash",
+                model="gemini-2.0-flash",
                 contents=[prompt_base, img_pil]
             )
             raw = response.text.replace("```json", "").replace("```", "").strip()
             data = json.loads(raw)
             
-            if isinstance(data, list):
-                for d in data:
-                    d["img_id"] = img_id
-                    d["filename"] = file.filename
-                    d["localidad"] = limpiar_y_formatear_localidad(d.get("localidad", ""))
-                    items_extraidos.append(d)
-            elif isinstance(data, dict):
-                data["img_id"] = img_id
-                data["filename"] = file.filename
-                data["localidad"] = limpiar_y_formatear_localidad(data.get("localidad", ""))
-                items_extraidos.append(data)
+            if not data or float(data.get("importe", 0)) == 0:
+                return None
+
+            data["img_id"] = img_id
+            data["filename"] = file.filename
+            data["localidad"] = limpiar_y_formatear_localidad(data.get("localidad", ""))
+            return data
         except Exception as e:
             print(f"Error OCR {file.filename}: {e}")
+            return None
+
+    # Procesar todos los archivos en paralelo de forma eficiente
+    tareas = [procesar_archivo(idx, f) for idx, f in enumerate(files)]
+    resultados = await asyncio.gather(*tareas)
+    
+    items_extraidos = [r for r in resultados if r is not None]
 
     con_f = [x for x in items_extraidos if parsear_fecha(x.get("fecha"))]
     sin_f = [x for x in items_extraidos if not parsear_fecha(x.get("fecha"))]
